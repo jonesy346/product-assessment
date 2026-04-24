@@ -34,6 +34,24 @@ User submits address
 5. **Risks / Unknowns** — missing data, red flags, caveats
 6. **Confidence Notes** — where sources agreed vs. conflicted, with a high / medium / low rating
 
+---
+
+## Design Decisions & Tradeoffs
+
+**No vector database.** Retrieval is live search (Tavily) or structured mock JSON. This keeps setup simple and avoids pre-population — the right call for a prototype, but a production system handling many properties would benefit from caching retrieved evidence.
+
+**Single-pass pipeline, no agent loop.** The flow is linear: retrieve → normalize → conflict-check → generate. This makes the system auditable and predictable. A multi-step agent could adaptively re-query for missing facts, but adds complexity and latency that isn't justified here.
+
+**Conflict detection as first-class.** Rather than silently picking one value when sources disagree, conflicts are surfaced explicitly to the LLM and reflected in the brief's confidence level. This directly addresses the "reliable" requirement — the system is honest about what it doesn't know.
+
+**Regex normalization over a second LLM call.** Extracting facts with regex heuristics is fast and deterministic. The tradeoff is brittleness — sources with unusual phrasing may be missed. A lightweight LLM extraction step would be more robust but adds latency and cost.
+
+**Mock fallback for deterministic demos.** Without a Tavily key the system returns the same structured mock evidence every time, making it easy to demo and test without API dependencies.
+
+**Citations in output.** Every fact in the brief traces back to a source ID. The LLM is explicitly instructed to cite sources, and the evidence panel in the UI lists all sources with detected conflicts highlighted.
+
+---
+
 ### Project Structure
 
 ```
