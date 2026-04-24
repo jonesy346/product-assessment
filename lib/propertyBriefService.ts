@@ -1,4 +1,4 @@
-import type { Address, EvidenceSource, PropertyFact } from './types'
+import type { Address, EvidenceSource, PropertyFact, Conflict } from './types'
 import { getMockSources } from './mockSources'
 
 export async function retrieve(address: Address): Promise<EvidenceSource[]> {
@@ -82,4 +82,48 @@ export function normalize(sources: EvidenceSource[]): PropertyFact[] {
     }
   }
   return facts
+}
+
+// ─── Conflict Resolver ───────────────────────────────────────────────────────
+
+export function detectConflicts(facts: PropertyFact[]): Conflict[] {
+  const byField = new Map<string, PropertyFact[]>()
+  for (const fact of facts) {
+    const group = byField.get(fact.field) ?? []
+    group.push(fact)
+    byField.set(fact.field, group)
+  }
+
+  const conflicts: Conflict[] = []
+  for (const [field, group] of byField.entries()) {
+    if (group.length < 2) continue
+
+    const values = group.map(f => ({ value: f.value, sourceId: f.sourceId }))
+    const nums = values.map(v => Number(v.value)).filter(n => !isNaN(n))
+    const isNumeric = nums.length === values.length
+
+    let conflicted = false
+    let description = ''
+
+    if (isNumeric) {
+      const min = Math.min(...nums)
+      const max = Math.max(...nums)
+      if (min > 0 && (max - min) / min > 0.05) {
+        conflicted = true
+        description = `Sources disagree on ${field}: values range from ${min} to ${max} (${Math.round(((max - min) / min) * 100)}% spread).`
+      }
+    } else {
+      const unique = [...new Set(values.map(v => String(v.value).toLowerCase().trim()))]
+      if (unique.length > 1) {
+        conflicted = true
+        description = `Sources disagree on ${field}: "${unique.join('" vs "')}."`
+      }
+    }
+
+    if (conflicted) {
+      conflicts.push({ field, values, description })
+    }
+  }
+
+  return conflicts
 }
