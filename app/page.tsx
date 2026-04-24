@@ -160,7 +160,7 @@ export default function HomePage() {
               <h2 className="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-3">Key Property Facts</h2>
               <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {brief.keyFacts.map(fact => (
-                  <div key={fact.field} className="rounded-lg bg-zinc-50 px-3 py-2">
+                  <div key={`${fact.field}-${fact.sourceId}`} className="rounded-lg bg-zinc-50 px-3 py-2">
                     <dt className="text-xs text-zinc-500 capitalize">{fact.field}</dt>
                     <dd className="mt-0.5 text-sm font-medium text-zinc-900">{fact.value}</dd>
                   </div>
