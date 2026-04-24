@@ -1,4 +1,5 @@
-import type { Address, EvidenceSource, PropertyFact, Conflict } from './types'
+import OpenAI from 'openai'
+import type { Address, EvidenceSource, PropertyFact, Conflict, PropertyBrief } from './types'
 import { getMockSources } from './mockSources'
 
 export async function retrieve(address: Address): Promise<EvidenceSource[]> {
@@ -126,4 +127,97 @@ export function detectConflicts(facts: PropertyFact[]): Conflict[] {
   }
 
   return conflicts
+}
+
+// ─── Brief Generator ─────────────────────────────────────────────────────────
+
+async function generateBriefFromLLM(
+  address: Address,
+  facts: PropertyFact[],
+  conflicts: Conflict[],
+  sources: EvidenceSource[]
+): Promise<PropertyBrief> {
+  if (!process.env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY is not set')
+
+  const client = new OpenAI()
+
+  const systemPrompt = `You are a trusted real estate analyst. Given property evidence, facts, and detected conflicts, produce a structured buyer-facing property brief.
+
+Return ONLY valid JSON matching this exact shape:
+{
+  "overview": "string — one paragraph summary",
+  "keyFacts": [{ "field": "string", "value": "string or number", "sourceId": "string", "confidence": "high|medium|low" }],
+  "neighborhoodContext": "string — paragraph or bullets",
+  "comparableSignals": "string — paragraph",
+  "risksAndUnknowns": ["string"],
+  "confidenceNotes": "string — where sources agreed vs conflicted",
+  "confidenceLevel": "high|medium|low",
+  "conflicts": [{ "field": "string", "values": [{ "value": "string or number", "sourceId": "string" }], "description": "string" }],
+  "sources": [{ "id": "string", "title": "string", "url": "string or null", "content": "string", "sourceType": "property|neighborhood|comps" }]
+}
+
+Rules:
+- Cite sources by ID in your prose where relevant.
+- Flag every detected conflict clearly in confidenceNotes and risksAndUnknowns.
+- Set confidenceLevel to "high" if sources broadly agree, "medium" for minor gaps, "low" for significant conflicts.
+- Be concise and buyer-friendly. Do not invent facts not present in the sources.`
+
+  const userPrompt = `Property address: ${address.street}, ${address.city}, ${address.state} ${address.postalCode}
+
+Extracted facts:
+${JSON.stringify(facts, null, 2)}
+
+Detected conflicts:
+${JSON.stringify(conflicts, null, 2)}
+
+Source evidence:
+${sources.map(s => `[${s.id}] ${s.title}\n${s.content}`).join('\n\n')}`
+
+  let raw: string | null = null
+  try {
+    const response = await client.chat.completions.create({
+      model: 'gpt-4o',
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+    })
+    raw = response.choices[0].message.content
+    return JSON.parse(raw!) as PropertyBrief
+  } catch {
+    if (raw !== null) {
+      try {
+        const retry = await client.chat.completions.create({
+          model: 'gpt-4o',
+          response_format: { type: 'json_object' },
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+        })
+        return JSON.parse(retry.choices[0].message.content!) as PropertyBrief
+      } catch {
+        // fall through to degraded brief
+      }
+    }
+    return {
+      overview: 'Brief generation encountered an error. Please try again.',
+      keyFacts: facts,
+      neighborhoodContext: '',
+      comparableSignals: '',
+      risksAndUnknowns: ['LLM generation failed — data shown may be incomplete.'],
+      confidenceNotes: 'Unable to generate confidence assessment.',
+      confidenceLevel: 'low',
+      conflicts,
+      sources,
+    }
+  }
+}
+
+export async function generateBrief(address: Address): Promise<PropertyBrief> {
+  const sources = await retrieve(address)
+  const facts = normalize(sources)
+  const conflicts = detectConflicts(facts)
+  return generateBriefFromLLM(address, facts, conflicts, sources)
 }
