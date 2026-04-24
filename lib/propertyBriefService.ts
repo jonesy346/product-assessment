@@ -157,6 +157,7 @@ Return ONLY valid JSON matching this exact shape:
 }
 
 Rules:
+- keyFacts must contain exactly one entry per unique field — use simple lowercase names (e.g. "bedrooms", "sqft", "price"). Never repeat a field.
 - Cite sources by ID in your prose where relevant.
 - Flag every detected conflict clearly in confidenceNotes and risksAndUnknowns.
 - Set confidenceLevel to "high" if sources broadly agree, "medium" for minor gaps, "low" for significant conflicts.

@@ -159,18 +159,27 @@ export default function HomePage() {
             <section className="bg-white rounded-xl border border-zinc-200 p-6">
               <h2 className="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-3">Key Property Facts</h2>
               <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {Array.from(new Map(brief.keyFacts.map(f => [f.field, f])).values()).map(fact => {
-                  const conflicted = brief.conflicts.some(c => c.field === fact.field)
-                  return (
-                    <div key={fact.field} className={`rounded-lg px-3 py-2 ${conflicted ? 'bg-amber-50 border border-amber-200' : 'bg-zinc-50'}`}>
-                      <dt className="text-xs text-zinc-500 capitalize flex items-center gap-1">
-                        {fact.field}
-                        {conflicted && <span className="text-amber-500" title="Sources conflict on this value">⚠</span>}
-                      </dt>
-                      <dd className="mt-0.5 text-sm font-medium text-zinc-900">{fact.value}</dd>
-                    </div>
-                  )
-                })}
+                {(() => {
+                  const byField = new Map<string, typeof brief.keyFacts>()
+                  for (const fact of brief.keyFacts) {
+                    const key = fact.field.toLowerCase().trim()
+                    byField.set(key, [...(byField.get(key) ?? []), fact])
+                  }
+                  return Array.from(byField.entries()).map(([key, facts]) => {
+                    const uniqueValues = [...new Set(facts.map(f => String(f.value).toLowerCase().trim()))]
+                    const conflicted = uniqueValues.length > 1
+                    const fact = facts[0]
+                    return (
+                      <div key={key} className={`rounded-lg px-3 py-2 ${conflicted ? 'bg-amber-50 border border-amber-200' : 'bg-zinc-50'}`}>
+                        <dt className="text-xs text-zinc-500 capitalize flex items-center gap-1">
+                          {fact.field}
+                          {conflicted && <span className="text-amber-500" title="Sources conflict on this value">⚠</span>}
+                        </dt>
+                        <dd className="mt-0.5 text-sm font-medium text-zinc-900">{fact.value}</dd>
+                      </div>
+                    )
+                  })
+                })()}
               </dl>
             </section>
 
