@@ -2,6 +2,35 @@
 
 Turns scattered, inconsistent property information into a clear, reliable buyer-facing brief — with citations and confidence notes.
 
+## Getting Started
+
+### Prerequisites
+
+- Node.js 18+
+- An OpenAI API key (required for brief generation)
+- A Tavily API key (optional — enables live web search; falls back to mock sources without it)
+
+### Setup
+
+```bash
+npm install
+```
+
+Create a `.env.local` file in the project root:
+
+```
+OPENAI_API_KEY=your_openai_key_here
+TAVILY_API_KEY=your_tavily_key_here   # optional
+```
+
+### Run
+
+```bash
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000), enter a property address, and click **Generate Brief**.
+
 ---
 
 ## How It Works
