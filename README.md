@@ -75,6 +75,8 @@ User submits address
 
 **Regex normalization over a second LLM call.** Extracting facts with regex heuristics is fast and deterministic. The tradeoff is brittleness — sources with unusual phrasing may be missed. A lightweight LLM extraction step would be more robust but adds latency and cost.
 
+**Ollama as a future OpenAI alternative.** The brief generator could be swapped to use a local Ollama endpoint (which exposes an OpenAI-compatible API) to remove the OpenAI key dependency entirely. Not implemented due to time constraints.
+
 **Mock fallback for deterministic demos.** Without a Tavily key the system returns the same structured mock evidence every time, making it easy to demo and test without API dependencies.
 
 **Citations in output.** Every fact in the brief traces back to a source ID. The LLM is explicitly instructed to cite sources, and the evidence panel in the UI lists all sources with detected conflicts highlighted.
