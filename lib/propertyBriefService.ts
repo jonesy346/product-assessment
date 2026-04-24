@@ -1,4 +1,4 @@
-import type { Address, EvidenceSource } from './types'
+import type { Address, EvidenceSource, PropertyFact } from './types'
 import { getMockSources } from './mockSources'
 
 export async function retrieve(address: Address): Promise<EvidenceSource[]> {
@@ -45,4 +45,41 @@ export async function retrieve(address: Address): Promise<EvidenceSource[]> {
   }
 
   return sources
+}
+
+// ─── Normalizer ──────────────────────────────────────────────────────────────
+
+const PATTERNS: Record<string, RegExp> = {
+  bedrooms: /(\d+)\s*bed(?:room)?s?/i,
+  bathrooms: /(\d+(?:\.\d+)?)\s*bath(?:room)?s?/i,
+  sqft: /(\d[\d,]+)\s*(?:sq(?:uare)?\s*f(?:ee)?t|sqft)/i,
+  price: /\$\s*(\d[\d,]+)/,
+  yearBuilt: /(?:built\s+in|year\s+built[:\s]+)(\d{4})/i,
+  lotSize: /(\d[\d,]*(?:\.\d+)?)\s*acres?/i,
+}
+
+function parseValue(raw: string, field: string): string | number {
+  const cleaned = raw.replace(/,/g, '')
+  if (field === 'price' || field === 'sqft' || field === 'bedrooms') return parseInt(cleaned, 10)
+  if (field === 'bathrooms' || field === 'lotSize') return parseFloat(cleaned)
+  if (field === 'yearBuilt') return parseInt(cleaned, 10)
+  return raw
+}
+
+export function normalize(sources: EvidenceSource[]): PropertyFact[] {
+  const facts: PropertyFact[] = []
+  for (const source of sources) {
+    if (source.sourceType !== 'property') continue
+    for (const [field, pattern] of Object.entries(PATTERNS)) {
+      const match = source.content.match(pattern)
+      if (!match) continue
+      facts.push({
+        field,
+        value: parseValue(match[1], field),
+        sourceId: source.id,
+        confidence: 'high',
+      })
+    }
+  }
+  return facts
 }
